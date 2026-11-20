@@ -1,8 +1,8 @@
 # Baize Demo
 
-运行 `go run .` 会初始化白泽的环境、时区和日志，再依次连接 MySQL、Redis、NATS 和 Elasticsearch。四类资源的实例名均为 `default`。需要 Go 1.27.3、同级目录 `../baize` 和可连接的对应服务。
+运行 `go run .` 会初始化白泽的环境、时区和日志，依次连接 MySQL、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS 和 STS 客户端。需要 Go 1.27.3、同级目录 `../baize` 和可连接的前四项服务。
 
-根入口在 `Plan.Resources` 中通过各适配器的 `Instances("default")` 声明资源，并调用 `bootstrap.RunCLI(plan)`。首次运行或升级时，从模板补齐本地配置。
+根入口在 `Plan.Resources` 中声明各实例，并调用 `bootstrap.RunCLI(plan)`。首次运行或升级时，从模板补齐本地配置。
 
 ```sh
 mkdir -p conf
@@ -15,8 +15,10 @@ cp -n conf.example/*.yaml conf/
 - `conf/redis.default.yaml` 填写主机、端口、认证信息和数据库编号。
 - `conf/nats.default.yaml` 填写集群节点地址，启用认证时填写用户名和密码。根入口只建立客户端连接，可直接使用 Core NATS 服务完成启动验证。
 - `conf/elasticsearch.default.yaml` 填写节点地址和认证信息。根入口导入 `elasticsearchboot/v8`，启动时通过 `GET /` 校验集群为 Elasticsearch 8。升级旧配置时删除 `version` 字段。使用自建 CA 时填写 `caCertFile`，相对路径从该文件所在目录解析。
+- `conf/aliyunossx.default.yaml` 配置地域、Bucket 和访问密钥，业务通过 `ossx.Named("default")` 访问该桶。
+- `conf/aliyunstsx.oss.yaml` 配置 STS 地域和访问密钥，业务通过 `stsx.Named("oss")` 申请临时凭据。
 
-资源就绪后，程序写入“白泽初始化完成”，随后关闭 Elasticsearch，排空并关闭 NATS，再关闭 Redis、MySQL 和日志。
+OSS 和 STS 的示例凭据可用于启动 demo。实际访问阿里云时，在本地配置中填写获授权的凭据。资源就绪后，程序写入“白泽初始化完成”，按声明的逆序回收客户端，最后关闭日志。
 
 ```sh
 go run .

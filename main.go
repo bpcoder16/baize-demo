@@ -4,6 +4,8 @@ import (
 	"os"
 
 	"github.com/bpcoder16/baize/bootstrap"
+	"github.com/bpcoder16/baize/bootstrap/aliyunossboot"
+	"github.com/bpcoder16/baize/bootstrap/aliyunstsboot"
 	esv8 "github.com/bpcoder16/baize/bootstrap/elasticsearchboot/v8"
 	"github.com/bpcoder16/baize/bootstrap/mysqlboot"
 	"github.com/bpcoder16/baize/bootstrap/natsboot"
@@ -17,6 +19,8 @@ func main() {
 			redisboot.Instances("default"),
 			natsboot.Instances("default"),
 			esv8.Instances("default"),
+			aliyunossboot.Instances("default"),
+			aliyunstsboot.Instances("oss"),
 		},
 	}))
 }
