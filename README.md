@@ -14,7 +14,7 @@ cp -n conf.example/*.yaml conf/
 - `conf/mysql.default.yaml` 填写数据库地址、库名和凭据。
 - `conf/redis.default.yaml` 填写主机、端口、认证信息和数据库编号。
 - `conf/nats.default.yaml` 填写集群节点地址，启用认证时填写用户名和密码。根入口只建立客户端连接，可直接使用 Core NATS 服务完成启动验证。
-- `conf/elasticsearch.default.yaml` 填写主版本（7、8 或 9）、节点地址和认证信息。使用自建 CA 时填写 `caCertFile`，相对路径从该文件所在目录解析。入口通过 `GET /` 验证集群版本。
+- `conf/elasticsearch.default.yaml` 填写节点地址和认证信息。根入口导入 `elasticsearchboot/v8`，启动时通过 `GET /` 校验集群为 Elasticsearch 8。升级旧配置时删除 `version` 字段。使用自建 CA 时填写 `caCertFile`，相对路径从该文件所在目录解析。
 
 资源就绪后，程序写入“白泽初始化完成”，随后关闭 Elasticsearch，排空并关闭 NATS，再关闭 Redis、MySQL 和日志。
 

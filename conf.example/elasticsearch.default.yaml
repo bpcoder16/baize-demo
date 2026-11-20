@@ -1,6 +1,5 @@
-# 与入口配置放在同一目录，文件名为 elasticsearch.<实例名>.yaml，实例名由 elasticsearchboot.Instances 声明。
+# 与入口配置放在同一目录，文件名为 elasticsearch.<实例名>.yaml。实例名和客户端主版本在 Go 代码中声明。
 
-version: 8  # 必填，与集群主版本一致，支持 7、8、9
 addresses:  # 至少一个 HTTP(S) 节点或负载均衡地址，凭据单独填写
   - "https://es.example.com:9200"
 
