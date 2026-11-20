@@ -1,18 +1,19 @@
 # Baize Demo
 
-本阶段演示白泽的进程初始化。需要 Go 1.27.3 和同级目录 `../baize`。首次运行时，从模板创建本地配置。
+运行 `go run .` 会初始化白泽的环境、时区和日志，再连接名为 `default` 的 MySQL 实例。需要 Go 1.27.3、同级目录 `../baize` 和可连接的 MySQL。
+
+根入口在 `Plan.Resources` 声明 MySQL，并调用 `bootstrap.RunCLI(plan)`。首次运行时，从模板补齐本地配置。
 
 ```sh
-cp -R conf.example conf
+mkdir -p conf
+cp -n conf.example/*.yaml conf/
 ```
 
-日常修改 `conf/app.yaml`，该目录由 Git 忽略。运行 demo 并查看初始化日志。
+在 `conf/mysql.default.yaml` 填写数据库地址、库名和凭据，应用配置在 `conf/app.yaml`。运行成功后，程序写入“白泽初始化完成”，关闭连接池和日志并退出。
 
 ```sh
 go run .
 cat log/baize-demo/biz/info.log
 ```
 
-白泽读取 `./conf/app.yaml`，初始化 Pixiu 环境、时区和日志。默认日志写入“白泽初始化完成”后，程序关闭日志并退出。
-
-可以通过 `go run . --conf /etc/cards/staging.yaml` 指定入口（简写为 `-c`），配置目录取该文件的父目录。相对的日志路径以进程启动工作目录为基准。`go run . -h` 显示用法。
+可用 `go run . --conf /etc/cards/staging.yaml` 指定应用配置（简写为 `-c`），`mysql.default.yaml` 放在该文件的同一目录。相对日志路径从启动工作目录计算。`go run . -h` 显示用法。
