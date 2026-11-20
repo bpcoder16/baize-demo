@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/bpcoder16/baize/bootstrap"
+	"github.com/bpcoder16/baize/bootstrap/elasticsearchboot"
 	"github.com/bpcoder16/baize/bootstrap/mysqlboot"
 	"github.com/bpcoder16/baize/bootstrap/natsboot"
 	"github.com/bpcoder16/baize/bootstrap/redisboot"
@@ -15,6 +16,7 @@ func main() {
 			mysqlboot.Instances("default"),
 			redisboot.Instances("default"),
 			natsboot.Instances("default"),
+			elasticsearchboot.Instances("default"),
 		},
 	}))
 }
