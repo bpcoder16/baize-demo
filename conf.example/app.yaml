@@ -17,8 +17,9 @@ log:
   hookStd: true
   # 日志根目录，默认 ./log。相对路径从进程启动目录计算，应用日志写入 <dir>/<appName>/biz/。
   dir: "./log"
-  # 额外的日志名称，例如 [audit] 会生成 audit.info.log 等文件。
-  names: []
+  # Gin 使用 http 日志，访问记录写入 http.info.log。
+  names:
+    - "http"
   rotate:
     # 按本地整点（1h）或午夜（24h）轮转，默认 1h。
     every: "1h"

@@ -19,6 +19,12 @@ tmp/
 docs/
 AGENTS.md
 
+# Generated OpenAPI files
+/openapi/*
+!/openapi/placeholder.go
+!/openapi/app.go
+!/openapi/admin.go
+
 # Demo runtime
 /conf/
 /log/
