@@ -1,0 +1,27 @@
+# 与 app.yaml 放在同一目录。log.names 已声明 cron，成功记录写入 cron.info.log。
+loggerName: "cron"
+
+# 可选 Redis 调度锁。同组副本共用 Redis 数据库、锁前缀和任务名，未获锁的副本跳过本轮。
+# 单实例可移除整个 lock 配置块。
+lock:
+  redisName: "default"           # 已初始化的 Redis 实例名
+  keyPrefix: "baize-demo:cron:"  # 不同应用或环境使用不同前缀
+  ttl: "30s"                     # 锁租期，默认 30s
+  renewInterval: "10s"           # 续租间隔，默认 ttl 的三分之一，须小于 ttl
+
+# name 须与已注册的 Handler 名称完全一致，区分大小写。用 jobs: [] 停用全部任务，修改后重启生效。
+# 每项只选 every、cron、randomEvery 中的一种。固定和随机间隔首次执行前都会等待。
+# 同一进程内，同名任务仍在运行时跳过本轮。
+# cron 按 env.timeLocation 解析，依次填写秒、分、时、日、月、周，不支持内嵌时区或 @daily。
+# timeout 默认不限时，启用锁时须设置正时长。超时取消任务上下文，Handler 返回后释放锁。
+# successLevel 可选 info（默认）或 debug。
+jobs:
+  - name: "Heartbeat"
+    every: "1m"  # 固定间隔，每分钟一次，最短 100ms
+    # 切换调度时，先注释 every，再取消下列一种写法的注释。
+    # cron: "0 30 2 * * *"  # 每天 02:30 执行
+    # randomEvery:          # 每轮重新选取间隔，范围为 [min, max)
+    #   min: "5m"           # 最短 100ms
+    #   max: "10m"          # 须大于 min
+    timeout: "5s"
+    successLevel: "info"

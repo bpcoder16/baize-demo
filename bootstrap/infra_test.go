@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/bpcoder16/baize-demo/bootstrap"
@@ -18,7 +19,9 @@ import (
 	"github.com/bpcoder16/baize-demo/internal/infra/sqlite"
 
 	"github.com/alicebob/miniredis/v2"
+	baize "github.com/bpcoder16/baize/bootstrap"
 	baizeconstant "github.com/bpcoder16/baize/constant"
+	"github.com/bpcoder16/pixiu/infra/env"
 	"github.com/bpcoder16/pixiu/lifecycle"
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -92,6 +95,25 @@ func TestInfraAccessors(t *testing.T) {
 	if err != nil || server.Exists(key) {
 		t.Fatalf("执行或释放锁失败，错误 %v", err)
 	}
+	t.Run("Cron模板绑定到宿主任务和共享Redis", func(t *testing.T) {
+		if err := env.Init(env.Config{AppName: "demo", RunMode: "test", TimeLocation: "UTC", ConfigDirPath: dir, LocalIP: "127.0.0.1"}); err != nil {
+			t.Fatal(err)
+		}
+		i := slices.IndexFunc(plan.Services, func(s baize.Service) bool { return s.Name == baizeconstant.ServiceCron })
+		if i < 0 {
+			t.Fatal("Demo 启动计划缺少 Cron 服务")
+		}
+		service, err := plan.Services[i].Build(t.Context(), filepath.Join("..", "conf.example"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := service.Stop(); err != nil {
+			t.Fatal(err)
+		}
+		if err := service.Wait(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+	})
 	if err := resources.Close(); err != nil {
 		t.Fatal(err)
 	}

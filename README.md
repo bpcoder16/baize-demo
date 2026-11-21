@@ -1,8 +1,8 @@
 # Baize Demo
 
-运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Gin HTTP 服务。需要 Go 1.27.3、同级目录 `../baize`、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
+运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Gin HTTP 和 Cron 服务。需要 Go 1.27.3、同级目录 `../baize`、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
 
-各组件在 `internal/infra/<组件>/` 中维护自己的资源实例名。Redis 锁的装配引用 [lock.DefaultPrepareExecutorName](internal/infra/lock/executor.go) 和 [redis.DefaultResourceName](internal/infra/redis/client.go)。[bootstrap/resource.go](bootstrap/resource.go) 声明共享资源，[bootstrap/prepare.go](bootstrap/prepare.go) 声明准备步骤。[bootstrap/service.go](bootstrap/service.go) 声明 Gin HTTP 服务。[NewPlan](bootstrap/plan.go) 将三份清单组装为启动计划，由根入口 `main.go` 交给白泽的 `RunCLI` 执行。`Plan.Prepare` 中的 `redisboot.PrepareLock` 用名为 `default` 的 Redis 创建同名锁执行器。业务代码从 `github.com/bpcoder16/baize-demo/internal/infra/<组件>` 导入对应包，在资源或准备步骤就绪后获取共享句柄。客户端由白泽统一关闭。首次运行或升级时，从模板补齐本地配置。
+各组件在 `internal/infra/<组件>/` 中维护自己的资源实例名。Redis 锁的装配引用 [lock.DefaultPrepareExecutorName](internal/infra/lock/executor.go) 和 [redis.DefaultResourceName](internal/infra/redis/client.go)。[bootstrap/resource.go](bootstrap/resource.go) 声明共享资源，[bootstrap/prepare.go](bootstrap/prepare.go) 声明准备步骤。[bootstrap/service.go](bootstrap/service.go) 声明 Gin HTTP 和 Cron 服务。[NewPlan](bootstrap/plan.go) 将三份清单组装为启动计划，由根入口 `main.go` 交给白泽的 `RunCLI` 执行。`Plan.Prepare` 中的 `redisboot.PrepareLock` 用名为 `default` 的 Redis 创建同名锁执行器。业务代码从 `github.com/bpcoder16/baize-demo/internal/infra/<组件>` 导入对应包，在资源或准备步骤就绪后获取共享句柄。客户端由白泽统一关闭。首次运行或升级时，从模板补齐本地配置。
 
 ```sh
 mkdir -p conf
@@ -28,7 +28,7 @@ go generate ./openapi
 - `conf/aliyunstsx.default.yaml` 配置 STS 地域和访问密钥，业务通过 `aliyunsts.DefaultClient()` 申请临时凭据。
 - `conf/aliyunesx.default.yaml` 填写阿里云 ES 实例的地域、`instanceID` 和管理 API 访问密钥。
 
-这三个阿里云客户端都在首次业务调用时才访问云服务，模板中的示例值可用于启动 demo。实际调用时，在本地配置中填写云资源信息和获授权的凭据。收到 SIGINT 或 SIGTERM 后，Demo 先停收并排空 HTTP 请求，再按声明的逆序回收客户端，最后关闭日志。所有资源共享 `conf/app.yaml` 的 `resourceCloseTimeout`（默认 30 秒），单个 NATS 客户端的 `closeTimeout`（默认 20 秒）计入这段时间。
+这三个阿里云客户端都在首次业务调用时才访问云服务，模板中的示例值可用于启动 demo。实际调用时，在本地配置中填写云资源信息和获授权的凭据。收到 SIGINT 或 SIGTERM 后，Demo 先停止接收 HTTP 请求和调度新任务，等待在途请求和任务结束，再按声明的逆序回收客户端，最后关闭日志。所有资源共享 `conf/app.yaml` 的 `resourceCloseTimeout`（默认 30 秒），单个 NATS 客户端的 `closeTimeout`（默认 20 秒）计入这段时间。
 
 ### Gin HTTP 与接口文档
 
@@ -37,6 +37,12 @@ go generate ./openapi
 在 debug/test 模式下打开 [本地接口文档](http://127.0.0.1:8888/docs)，首页展示 App，可切换到 Admin。各模块的页面位于 `/docs/<模块名>`，Swagger 2.0 JSON 位于 `/openapi/<模块名>.json`。release 模式只注册业务路由。
 
 `internal/http/router` 按 App、Admin 分文件挂载路由。接口实现和 Swag 注释放在 `internal/http/handler`。两端共用 Handler 时，在函数旁各写一个独立注释块，分别声明模块标记和完整的 `@Router` 路径。`@Tags` 用于文档内分组。修改注释后，在仓库根目录执行 `go generate ./openapi` 更新两份文档。[路由入口](internal/http/router/http.go) · [Ping 接口与文档注释](internal/http/handler/ping.go)
+
+### Cron 定时任务
+
+`internal/cron/router` 登记任务，`internal/cron/handler` 实现任务。启动时，`bootstrap/service.go` 将注册表交给 `cronboot.Service`。Demo 启动一分钟后首次执行 `Heartbeat`，随后每分钟一次。可在 `log/baize-demo/biz/cron.info.log` 中查看该任务的 `CronJobResult`。[任务注册表](internal/cron/router/registry.go) · [Heartbeat 实现](internal/cron/handler/heartbeat.go) · [Cron 模板](conf.example/cron.yaml)
+
+`conf/cron.yaml` 中的任务名与函数名大小写一致。每项选用 `every`、`cron` 或 `randomEvery` 中的一种调度方式。示例借用 `default` Redis，通过 `baize-demo:cron:` 前缀协调同一任务的多个副本。单实例部署可省略 `lock`。修改配置后重启生效，`jobs: []` 停用全部任务，`app.yaml` 的 `disabledServices` 加入 `"cron"` 则跳过整个 Cron 服务的构造。
 
 ### 数据库迁移
 
