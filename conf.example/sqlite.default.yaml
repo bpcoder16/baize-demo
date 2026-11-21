@@ -1,0 +1,19 @@
+# 与 app.yaml 放在同一目录，文件名为 sqlite.<实例名>.yaml，实例名与代码声明一致。
+
+# 持久化时填写文件路径或 file: URI，相对路径从进程工作目录解析。
+dsn: ":memory:"    # 必填，:memory: 表示私有内存库
+journalMode: ""    # 日志模式，文件库可选 WAL，留空沿用 DSN 或驱动设置
+synchronous: ""    # 同步级别，如 NORMAL 或 FULL，留空沿用 DSN 或驱动设置
+busyTimeout: "5s"  # 等待数据库锁的时限，精度为毫秒
+foreignKeys: true  # 开启外键检查，省略时沿用 DSN 或驱动设置
+
+# 私有内存库使用单连接，最后一个连接关闭时数据释放。
+pool:
+  maxOpenConns: 1        # 最大连接数，私有内存库须为 1
+  maxIdleConns: 1        # 最大空闲连接数
+  connMaxLifetime: "0s"  # 连接最长使用时间，内存库须为 0s
+  connMaxIdleTime: "0s"  # 连接最长空闲时间，内存库须为 0s
+
+slowThreshold: "200ms"  # 慢查询阈值，默认 200ms
+logSQL: true            # 记录正常查询 SQL，关闭后仍记录慢查询和错误
+interpolateSQL: false   # 在日志中展开 SQL 参数，可能包含敏感数据

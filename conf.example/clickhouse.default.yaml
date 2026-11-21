@@ -1,0 +1,35 @@
+# 与 app.yaml 放在同一目录，文件名为 clickhouse.<实例名>.yaml，实例名与代码声明一致。
+
+master:
+  host: "127.0.0.1"  # 必填，主库地址
+  port: 9000         # Native 默认 9000，HTTP 默认 8123
+
+# 无从库时读主库，多个从库轮询读取。
+slaves: []
+# slaves:
+#   - host: "replica.example.com"
+#     port: 9000
+
+# 主从共用以下连接参数。
+database: "default"  # 必填，数据库名
+username: "default"  # 必填，用户名
+password: ""         # 密码，可留空
+protocol: "native"   # 连接协议，可选 native 或 http
+tls: false           # 开启后使用系统 CA 校验节点证书，端口按部署填写
+settings:
+  session_timezone: "UTC"  # ClickHouse 会话时区
+
+initTimeout: "10s"  # 所有主从连接共用的启动时限，默认 10s
+dialTimeout: "3s"   # 单次建连时限
+readTimeout: "30s"  # 单次读取时限
+
+# 每个主库、从库各用一个连接池。
+pool:
+  maxOpenConns: 100      # 最大连接数
+  maxIdleConns: 10       # 最大空闲连接数，不能超过 maxOpenConns
+  connMaxLifetime: "3m"  # 连接最长使用时间
+  connMaxIdleTime: "1m"  # 连接最长空闲时间
+
+slowThreshold: "200ms"  # 慢查询阈值，默认 200ms
+logSQL: true            # 记录正常查询 SQL，关闭后仍记录慢查询和错误
+interpolateSQL: false   # 在日志中展开 SQL 参数，可能包含敏感数据
