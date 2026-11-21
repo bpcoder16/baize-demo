@@ -2,7 +2,13 @@ module github.com/bpcoder16/baize-demo
 
 go 1.27.3
 
-require github.com/bpcoder16/baize v0.0.0
+require (
+	github.com/alicebob/miniredis/v2 v2.40.0
+	github.com/bpcoder16/baize v0.0.0
+	github.com/bpcoder16/pixiu v0.1.12
+	github.com/redis/go-redis/v9 v9.23.0
+	gorm.io/gorm v1.31.2
+)
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
@@ -18,7 +24,6 @@ require (
 	github.com/aliyun/alibabacloud-oss-go-sdk-v2 v1.6.1 // indirect
 	github.com/aliyun/credentials-go v1.4.14 // indirect
 	github.com/andybalholm/brotli v1.2.7 // indirect
-	github.com/bpcoder16/pixiu v0.1.12 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
 	github.com/elastic/elastic-transport-go/v8 v8.11.0 // indirect
@@ -50,7 +55,6 @@ require (
 	github.com/paulmach/orb v0.13.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/pierrec/lz4/v4 v4.1.33 // indirect
-	github.com/redis/go-redis/v9 v9.23.0 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.6.0 // indirect
@@ -60,6 +64,7 @@ require (
 	github.com/spf13/viper v1.21.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
@@ -78,7 +83,6 @@ require (
 	gorm.io/driver/mysql v1.6.0 // indirect
 	gorm.io/driver/postgres v1.6.3 // indirect
 	gorm.io/driver/sqlite v1.6.0 // indirect
-	gorm.io/gorm v1.31.2 // indirect
 )
 
 replace github.com/bpcoder16/baize => ../baize
