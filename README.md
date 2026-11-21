@@ -1,8 +1,8 @@
 # Baize Demo
 
-运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Gin HTTP 和 Cron 服务。需要 Go 1.27.3、同级目录 `../baize`、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
+运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Gin HTTP、Cron 和 `default` 实例的 NATS 消费服务。需要 Go 1.27.3、同级目录 `../baize`、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
 
-各组件在 `internal/infra/<组件>/` 中维护自己的资源实例名。Redis 锁的装配引用 [lock.DefaultPrepareExecutorName](internal/infra/lock/executor.go) 和 [redis.DefaultResourceName](internal/infra/redis/client.go)。[bootstrap/resource.go](bootstrap/resource.go) 声明共享资源，[bootstrap/prepare.go](bootstrap/prepare.go) 声明准备步骤。[bootstrap/service.go](bootstrap/service.go) 声明 Gin HTTP 和 Cron 服务。[NewPlan](bootstrap/plan.go) 将三份清单组装为启动计划，由根入口 `main.go` 交给白泽的 `RunCLI` 执行。`Plan.Prepare` 中的 `redisboot.PrepareLock` 用名为 `default` 的 Redis 创建同名锁执行器。业务代码从 `github.com/bpcoder16/baize-demo/internal/infra/<组件>` 导入对应包，在资源或准备步骤就绪后获取共享句柄。客户端由白泽统一关闭。首次运行或升级时，从模板补齐本地配置。
+各组件在 `internal/infra/<组件>/` 中维护自己的资源实例名。Redis 锁的装配引用 [lock.DefaultPrepareExecutorName](internal/infra/lock/executor.go) 和 [redis.DefaultResourceName](internal/infra/redis/client.go)。[bootstrap/resource.go](bootstrap/resource.go) 声明共享资源，[bootstrap/prepare.go](bootstrap/prepare.go) 声明准备步骤。[bootstrap/service.go](bootstrap/service.go) 声明 Gin HTTP、Cron 和 NATS 消费服务。[NewPlan](bootstrap/plan.go) 将三份清单组装为启动计划，由根入口 `main.go` 交给白泽的 `RunCLI` 执行。`Plan.Prepare` 中的 `redisboot.PrepareLock` 用名为 `default` 的 Redis 创建同名锁执行器。业务代码从 `github.com/bpcoder16/baize-demo/internal/infra/<组件>` 导入对应包，在资源或准备步骤就绪后获取共享句柄。客户端由白泽统一关闭。首次运行或升级时，从模板补齐本地配置。
 
 ```sh
 mkdir -p conf
@@ -22,13 +22,13 @@ go generate ./openapi
 - `conf/clickhouse.default.yaml` 填写库名、凭据、协议和地址。Native 默认端口 9000，HTTP 默认端口 8123。业务通过 `clickhouse.DefaultMasterDB(ctx)` 和 `clickhouse.DefaultSlaveDB(ctx)` 获取会话。
 - `conf/sqlite.default.yaml` 默认使用 `:memory:`，业务通过 `sqlite.DefaultDB(ctx)` 获取会话。持久化时将 `dsn` 改为文件路径或 `file:` URI，并提前创建父目录。构建 demo 时使用 `CGO_ENABLED=1`。
 - `conf/redis.default.yaml` 填写主机、端口、认证信息和数据库编号。通过 `redis.DefaultClient()` 执行命令，需要 Pixiu 包装类型时使用 `redis.DefaultInstance()`。锁复用该实例的连接池，需要保留 `maxRetries: -1` 以关闭 Redis 命令重试。
-- `conf/nats.default.yaml` 填写集群节点地址，启用认证时填写用户名和密码。通过 `nats.DefaultClient()` 发布消息。demo 只建立客户端连接，可直接使用 Core NATS 服务完成启动验证。
+- `conf/nats.default.yaml` 填写集群节点地址，启用认证时填写用户名和密码。通过 `nats.DefaultClient()` 发布消息。默认消费示例可使用仅开启 Core 的 NATS 服务。
 - `conf/elasticsearch.default.yaml` 填写节点地址和认证信息。启动计划使用 `elasticsearchboot/v8`，启动时通过 `GET /` 校验集群为 Elasticsearch 8。升级旧配置时删除 `version` 字段。使用自建 CA 时填写 `caCertFile`，相对路径从该文件所在目录解析。
 - `conf/aliyunossx.default.yaml` 配置地域、Bucket 和访问密钥，业务通过 `aliyunoss.DefaultClient()` 访问该桶。
 - `conf/aliyunstsx.default.yaml` 配置 STS 地域和访问密钥，业务通过 `aliyunsts.DefaultClient()` 申请临时凭据。
 - `conf/aliyunesx.default.yaml` 填写阿里云 ES 实例的地域、`instanceID` 和管理 API 访问密钥。
 
-这三个阿里云客户端都在首次业务调用时才访问云服务，模板中的示例值可用于启动 demo。实际调用时，在本地配置中填写云资源信息和获授权的凭据。收到 SIGINT 或 SIGTERM 后，Demo 先停止接收 HTTP 请求和调度新任务，等待在途请求和任务结束，再按声明的逆序回收客户端，最后关闭日志。所有资源共享 `conf/app.yaml` 的 `resourceCloseTimeout`（默认 30 秒），单个 NATS 客户端的 `closeTimeout`（默认 20 秒）计入这段时间。
+这三个阿里云客户端都在首次业务调用时才访问云服务，模板中的示例值可用于启动 demo。实际调用时，在本地配置中填写云资源信息和获授权的凭据。收到 SIGINT 或 SIGTERM 后，Demo 先停止接收 HTTP 请求、NATS 消息和调度新任务，等待在途工作结束，再按声明的逆序回收客户端，最后关闭日志。所有资源共享 `conf/app.yaml` 的 `resourceCloseTimeout`（默认 30 秒），单个 NATS 客户端的 `closeTimeout`（默认 20 秒）计入这段时间。
 
 ### Gin HTTP 与接口文档
 
@@ -43,6 +43,24 @@ go generate ./openapi
 `internal/cron/router` 登记任务，`internal/cron/handler` 实现任务。启动时，`bootstrap/service.go` 将注册表交给 `cronboot.Service`。Demo 启动一分钟后首次执行 `Heartbeat`，随后每分钟一次。可在 `log/baize-demo/biz/cron.info.log` 中查看该任务的 `CronJobResult`。[任务注册表](internal/cron/router/registry.go) · [Heartbeat 实现](internal/cron/handler/heartbeat.go) · [Cron 模板](conf.example/cron.yaml)
 
 `conf/cron.yaml` 中的任务名与函数名大小写一致。每项选用 `every`、`cron` 或 `randomEvery` 中的一种调度方式。示例借用 `default` Redis，通过 `baize-demo:cron:` 前缀协调同一任务的多个副本。单实例部署可省略 `lock`。修改配置后重启生效，`jobs: []` 停用全部任务，`app.yaml` 的 `disabledServices` 加入 `"cron"` 则跳过整个 Cron 服务的构造。
+
+### NATS 消费与消息应答
+
+`internal/nats/router` 分别登记 `JetStreamRegistry` 和 `CoreRegistry`，`internal/nats/handler` 实现消费函数。`nats-consumer:default` 借用现有的 `default` 连接，读取同目录的 `nats-register.default.yaml`。配置中的 `handler` 与对应注册表的名称大小写一致。[注册表](internal/nats/router/registry.go) · [订阅配置](conf.example/nats-register.default.yaml)
+
+默认启用 Core 请求应答。启动 Demo 后，在连接同一 NATS 服务的 CLI 中执行下列命令，预期收到 `pong`。[Ping 实现](internal/nats/handler/ping.go)
+
+```sh
+nats request demo.ping hello
+```
+
+试用 JetStream 时，先在 NATS 服务端开启 JetStream，再取消 `conf/nats-register.default.yaml` 中 `streams` 块的首层注释并重启 Demo。运行下列命令后，`HandleDemoEvent` 会把事件 ID 写入本次消费日志，由 natsx 确认成功处理的消息。日志位于 `log/baize-demo/biz/nats.info.log`。命令使用模板默认的空 `namespace`，若设置了命名空间，CLI 主题需加上相应前缀。[事件处理函数](internal/nats/handler/event.go)
+
+```sh
+nats pub demo.events.created '{"id":"demo-1"}'
+```
+
+在 `app.yaml` 的 `disabledServices` 中加入 `"nats-consumer:default"` 可按实例停用消费，已声明的 NATS 连接仍可发布消息。
 
 ### 数据库迁移
 
