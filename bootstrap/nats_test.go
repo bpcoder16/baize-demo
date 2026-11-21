@@ -16,11 +16,11 @@ import (
 	"github.com/nats-io/nats-server/v2/server"
 )
 
-// 分进程验证默认 Core 配置和取消注释后的 JetStream 示例，各自使用独立的命名客户端。
+// 分进程验证Core 广播、队列和 JetStream 示例，各自使用独立的命名客户端。
 func TestDemoNATSConsumer(t *testing.T) {
 	mode := os.Getenv("BAIZE_DEMO_NATS_TEST")
 	if mode == "" {
-		for _, mode := range []string{"core", "jetstream"} {
+		for _, mode := range []string{"core", "queue", "jetstream"} {
 			t.Run(mode, func(t *testing.T) {
 				ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 				defer cancel()
@@ -63,22 +63,31 @@ func TestDemoNATSConsumer(t *testing.T) {
 	}
 	defer natsx.CloseAll()
 	dir := filepath.Join("..", "conf.example")
-	if mode == "jetstream" {
+	if mode != "core" {
 		const filename = "nats-register.default.yaml"
 		raw, readErr := os.ReadFile(filepath.Join(dir, filename))
 		if readErr != nil {
 			t.Fatal(readErr)
 		}
-		before, after, ok := strings.Cut(string(raw), "\n# streams:\n")
-		if !ok {
-			t.Fatal("模板缺少注释的 streams 示例")
+		enabled := string(raw)
+		if mode == "queue" {
+			const line = `    # queue: "demo-workers"`
+			if !strings.Contains(enabled, line) {
+				t.Fatal("模板缺少 Core 队列示例")
+			}
+			enabled = strings.Replace(enabled, line, `    queue: "demo-workers"`, 1)
+		} else {
+			before, after, ok := strings.Cut(string(raw), "\n# streams:\n")
+			if !ok {
+				t.Fatal("模板缺少注释的 streams 示例")
+			}
+			block, rest, _ := strings.Cut(after, "\n\n")
+			lines := strings.Split(block, "\n")
+			for i := range lines {
+				lines[i] = strings.TrimPrefix(lines[i], "# ")
+			}
+			enabled = before + "\nstreams:\n" + strings.Join(lines, "\n") + "\n\n" + rest
 		}
-		block, rest, _ := strings.Cut(after, "\n\n")
-		lines := strings.Split(block, "\n")
-		for i := range lines {
-			lines[i] = strings.TrimPrefix(lines[i], "# ")
-		}
-		enabled := before + "\nstreams:\n" + strings.Join(lines, "\n") + "\n\n" + rest
 		dir = t.TempDir()
 		if err := os.WriteFile(filepath.Join(dir, filename), []byte(enabled), 0o600); err != nil {
 			t.Fatal(err)

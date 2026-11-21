@@ -1,6 +1,6 @@
 # Baize Demo
 
-运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Gin HTTP、Cron 和 `default` 实例的 NATS 消费服务。需要 Go 1.27.3、同级目录 `../baize`、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
+运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Gin HTTP、Cron 和 `default` 实例的 NATS 消费服务。需要 Go 1.27.3、同级目录 `../baize`、可用的 C 编译器，以及配置中指定的数据库和网络服务。Pixiu 使用 `v0.2.1` 发布版。SQLite 默认使用进程内存。
 
 各组件在 `internal/infra/<组件>/` 中维护自己的资源实例名。Redis 锁的装配引用 [lock.DefaultPrepareExecutorName](internal/infra/lock/executor.go) 和 [redis.DefaultResourceName](internal/infra/redis/client.go)。[bootstrap/resource.go](bootstrap/resource.go) 声明共享资源，[bootstrap/prepare.go](bootstrap/prepare.go) 声明准备步骤。[bootstrap/service.go](bootstrap/service.go) 声明 Gin HTTP、Cron 和 NATS 消费服务。[NewPlan](bootstrap/plan.go) 将三份清单组装为启动计划，由根入口 `main.go` 交给白泽的 `RunCLI` 执行。`Plan.Prepare` 中的 `redisboot.PrepareLock` 用名为 `default` 的 Redis 创建同名锁执行器。业务代码从 `github.com/bpcoder16/baize-demo/internal/infra/<组件>` 导入对应包，在资源或准备步骤就绪后获取共享句柄。客户端由白泽统一关闭。首次运行或升级时，从模板补齐本地配置。
 
@@ -48,7 +48,7 @@ go generate ./openapi
 
 `internal/nats/router` 分别登记 `JetStreamRegistry` 和 `CoreRegistry`，`internal/nats/handler` 实现消费函数。`nats-consumer:default` 借用现有的 `default` 连接，读取同目录的 `nats-register.default.yaml`。配置中的 `handler` 与对应注册表的名称大小写一致。[注册表](internal/nats/router/registry.go) · [订阅配置](conf.example/nats-register.default.yaml)
 
-默认启用 Core 请求应答。启动 Demo 后，在连接同一 NATS 服务的 CLI 中执行下列命令，预期收到 `pong`。[Ping 实现](internal/nats/handler/ping.go)
+启动时先绑定 Handler 并校验整份订阅配置，再注册远端资源。默认启用 Core 广播请求应答。需要多个实例分担请求时，取消 `queue` 的注释即可。每个实例默认建立一个同组订阅，增加并发时可将 `subscribers` 设为更大的正整数。启动 Demo 后，在连接同一 NATS 服务的 CLI 中执行下列命令，预期收到 `pong`。[Ping 实现](internal/nats/handler/ping.go)
 
 ```sh
 nats request demo.ping hello
