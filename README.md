@@ -9,10 +9,10 @@ mkdir -p conf
 cp -n conf.example/*.yaml conf/
 ```
 
-应用配置在 `conf/app.yaml`。共享资源各有一份连接配置。
+应用配置在 `conf/app.yaml`。应用和实例配置中的超时建议写明单位，例如 `"30s"` 或 `"500ms"`。YAML 整数按纳秒解析，`resourceCloseTimeout: 30` 表示 30 纳秒。共享资源各有一份连接配置。
 
 - `conf/mysql.default.yaml` 填写数据库地址、库名和凭据。
-- `conf/postgresql.default.yaml` 填写主库、可选从库及凭据。模板使用 `sslMode: "verify-full"`，本地配置按实际服务填写 TLS 模式和证书。
+- `conf/postgresql.default.yaml` 填写主库、可选从库及凭据。模板使用 `sslMode: "verify-full"`，本地配置按实际服务填写 TLS 模式和证书。`sslRootCert`、`sslCert` 和 `sslKey` 的相对路径从进程工作目录解析。例如，从 `/srv/demo` 使用 `--conf /etc/demo/app.yaml` 启动时，`certs/ca.pem` 指向 `/srv/demo/certs/ca.pem`。证书随配置部署时可写绝对路径，如 `/etc/demo/certs/ca.pem`。
 - `conf/clickhouse.default.yaml` 填写库名、凭据、协议和地址。Native 默认端口 9000，HTTP 默认端口 8123。
 - `conf/sqlite.default.yaml` 默认使用 `:memory:`。持久化时将 `dsn` 改为文件路径或 `file:` URI，并提前创建父目录。构建 demo 时使用 `CGO_ENABLED=1`。
 - `conf/redis.default.yaml` 填写主机、端口、认证信息和数据库编号。

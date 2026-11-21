@@ -19,11 +19,13 @@ location: "UTC"         # Go 读取无时区时间戳时使用的时区
 sessionTimeZone: "UTC"  # 数据库会话时区，留空沿用服务端设置
 
 sslMode: "verify-full"  # 校验服务端证书和主机名，留空使用 prefer
+# 以下三个文件路径可用绝对路径（如 /etc/shop/certs/ca.pem）。相对路径从进程工作目录解析。
 sslRootCert: ""         # 用于校验服务端的根 CA 文件
 sslCert: ""             # 客户端证书文件，与 sslKey 配套
 sslKey: ""              # 客户端私钥文件
 
 disableStatementCache: false  # 开启后禁用命名预备语句缓存，仍使用扩展查询协议
+# 超时使用带单位的时长，如 "10s" 或 "500ms"。整数按纳秒解析。
 initTimeout: "10s"            # 所有主从连接共用的启动时限，默认 10s
 dialTimeout: "3s"             # 单次建连时限，0s 表示不设驱动级超时
 
