@@ -21,7 +21,7 @@ cp -n conf.example/*.yaml conf/
 - `conf/aliyunossx.default.yaml` 配置地域、Bucket 和访问密钥，业务通过 `ossx.Named("default")` 访问该桶。
 - `conf/aliyunstsx.oss.yaml` 配置 STS 地域和访问密钥，业务通过 `stsx.Named("oss")` 申请临时凭据。
 
-OSS 和 STS 的示例凭据可用于启动 demo。实际访问阿里云时，在本地配置中填写获授权的凭据。资源就绪后，程序写入“白泽初始化完成”，按声明的逆序回收客户端，最后关闭日志。
+OSS 和 STS 的示例凭据可用于启动 demo。实际访问阿里云时，在本地配置中填写获授权的凭据。资源就绪后，程序写入“白泽初始化完成”，按声明的逆序回收客户端，最后关闭日志。所有资源共享 `conf/app.yaml` 的 `resourceCloseTimeout`（默认 30 秒），单个 NATS 客户端的 `closeTimeout`（默认 20 秒）计入这段时间。
 
 ```sh
 go run .

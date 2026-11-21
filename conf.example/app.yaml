@@ -28,9 +28,9 @@ log:
 # 所有常驻服务停收和排空的总时限。省略或设为 0s 时使用 30s，负值无效。
 serviceShutdownTimeout: "30s"
 
-# 服务排空后，关闭所有已登记资源的总时限。省略或设为 0s 时使用 20s，负值无效。
-resourceCloseTimeout: "20s"
+# 服务排空后，关闭所有已登记资源的总时限。省略或设为 0s 时使用 30s，负值无效。
+resourceCloseTimeout: "30s"
 
-# 可填 http、cron、nats-consumer、websocket 或 Plan 声明的类型。填类型禁用整组，填“类型:实例名”禁用单个实例。
+# 支持的服务类型为 http、cron、nats-consumer、websocket。填类型禁用整组，填“类型:实例名”禁用单个实例。
 # 例如 ["nats-consumer:orders"] 表示仅禁用 orders 消费者。已禁用的服务跳过构造。
 disabledServices: []
