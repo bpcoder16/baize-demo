@@ -1,0 +1,13 @@
+# 与 app.yaml 放在同一目录，文件名为 realtime.<实例名>.yaml，实例名与代码声明一致。
+
+# WebSocket 独立监听，GET /ready/ws 用于就绪检查。
+addr: "127.0.0.1:8889"  # 必填，示例仅监听本机
+path: "/ws/app"         # 必填，WebSocket 升级路径，须以 / 开头
+
+maxHeaderBytes: 65536  # 请求行和请求头的总字节数上限，默认 64 KiB
+
+# 以下超时用于 HTTP 请求和 WebSocket 握手，0s 使用下列默认值。
+readHeaderTimeout: "5s"  # 读取请求头，须非负
+readTimeout: "10s"       # 读取完整请求（含正文），负值不限时
+writeTimeout: "15s"      # 写入响应，负值不限时
+idleTimeout: "60s"       # 等待同一 HTTP 连接的下一次请求，须非负
