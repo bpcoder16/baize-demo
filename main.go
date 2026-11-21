@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/bpcoder16/baize/bootstrap"
+	"github.com/bpcoder16/baize/bootstrap/aliyunesboot"
 	"github.com/bpcoder16/baize/bootstrap/aliyunossboot"
 	"github.com/bpcoder16/baize/bootstrap/aliyunstsboot"
 	"github.com/bpcoder16/baize/bootstrap/clickhouseboot"
@@ -27,6 +28,7 @@ func main() {
 			esv8.Instances("default"),
 			aliyunossboot.Instances("default"),
 			aliyunstsboot.Instances("oss"),
+			aliyunesboot.Instances("search-control"),
 		},
 	}))
 }

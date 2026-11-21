@@ -1,6 +1,6 @@
 # Baize Demo
 
-运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS 和 STS 客户端。需要 Go 1.27.3、同级目录 `../baize`、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
+运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。需要 Go 1.27.3、同级目录 `../baize`、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
 
 根入口在 `Plan.Resources` 中声明各实例，并调用 `bootstrap.RunCLI(plan)`。首次运行或升级时，从模板补齐本地配置。
 
@@ -20,8 +20,21 @@ cp -n conf.example/*.yaml conf/
 - `conf/elasticsearch.default.yaml` 填写节点地址和认证信息。根入口导入 `elasticsearchboot/v8`，启动时通过 `GET /` 校验集群为 Elasticsearch 8。升级旧配置时删除 `version` 字段。使用自建 CA 时填写 `caCertFile`，相对路径从该文件所在目录解析。
 - `conf/aliyunossx.default.yaml` 配置地域、Bucket 和访问密钥，业务通过 `ossx.Named("default")` 访问该桶。
 - `conf/aliyunstsx.oss.yaml` 配置 STS 地域和访问密钥，业务通过 `stsx.Named("oss")` 申请临时凭据。
+- `conf/aliyunesx.search-control.yaml` 填写阿里云 ES 实例的地域、`instanceID` 和管理 API 访问密钥。`search-control` 是 demo 中声明的本地名称。
 
-OSS 和 STS 的示例凭据可用于启动 demo。实际访问阿里云时，在本地配置中填写获授权的凭据。资源就绪后，程序写入“白泽初始化完成”，按声明的逆序回收客户端，最后关闭日志。所有资源共享 `conf/app.yaml` 的 `resourceCloseTimeout`（默认 30 秒），单个 NATS 客户端的 `closeTimeout`（默认 20 秒）计入这段时间。
+这三个阿里云客户端都在首次业务调用时才访问云服务，模板中的示例值可用于启动 demo。实际调用时，在本地配置中填写云资源信息和获授权的凭据。资源就绪后，程序写入“白泽初始化完成”，按声明的逆序回收客户端，最后关闭日志。所有资源共享 `conf/app.yaml` 的 `resourceCloseTimeout`（默认 30 秒），单个 NATS 客户端的 `closeTimeout`（默认 20 秒）计入这段时间。
+
+资源就绪后，可在业务代码中导入 `github.com/bpcoder16/pixiu/infra/aliyun/esx`，按名称查询云实例状态。索引和文档读写继续使用 `elasticsearchx.Named("default")`。
+
+```go
+func instanceStatus(ctx context.Context) (string, error) {
+    result, err := esx.Named("search-control").DescribeInstance(ctx)
+    if err != nil {
+        return "", err
+    }
+    return result.Status, nil
+}
+```
 
 ```sh
 go run .

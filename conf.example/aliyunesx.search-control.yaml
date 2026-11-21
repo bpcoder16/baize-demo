@@ -1,0 +1,13 @@
+# 与 app.yaml 放在同一目录，文件名为 aliyunesx.<实例名>.yaml，实例名与代码声明一致。
+
+region: "cn-hangzhou"     # 必填，ES 实例所在地域
+instanceID: "es-example"  # 必填，阿里云 ES 实例 ID
+endpoint: ""              # 管理 API 的 HTTP(S) 地址，留空按地域选择
+
+# 两项均必填，使用有权调用该实例管理 API 的 AccessKey。
+accessKeyID: "example-access-key-id"
+accessKeySecret: "example-access-key-secret"
+
+requestTimeout: "60s"   # 单次管理请求超时，默认 60s
+slowThreshold: "200ms"  # 慢请求日志阈值，默认 200ms
+logRequests: false      # 记录请求结果，默认关闭
