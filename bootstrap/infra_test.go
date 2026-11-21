@@ -58,7 +58,7 @@ func TestInfraAccessors(t *testing.T) {
 	}
 	ctx := t.Context()
 	for _, step := range plan.Prepare {
-		if err := step.Init(ctx, dir, &resources); err != nil {
+		if err := step.Init(ctx, filepath.Join("..", "conf.example"), &resources); err != nil {
 			t.Fatal(err)
 		}
 	}
