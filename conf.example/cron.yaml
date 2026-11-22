@@ -9,7 +9,7 @@ lock:
   ttl: "30s"                     # 锁租期，默认 30s
   renewInterval: "10s"           # 续租间隔，默认 ttl 的三分之一，须小于 ttl
 
-# name 须与已注册的 Handler 名称完全一致，区分大小写。用 jobs: [] 停用全部任务，修改后重启生效。
+# name 须与已注册的 Handler 名称完全一致，区分大小写。jobs: [] 清空配置中的任务，Prepare 登记的内置任务仍会运行。
 # 每项只选 every、cron、randomEvery 中的一种。固定和随机间隔首次执行前都会等待。
 # 同一进程内，同名任务仍在运行时跳过本轮。
 # cron 按 env.timeLocation 解析，依次填写秒、分、时、日、月、周，不支持内嵌时区或 @daily。

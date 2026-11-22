@@ -1,4 +1,4 @@
 # 与 app.yaml 放在同一目录，对应名为 default 的 MySQL 主库。
 
-enabled: false  # 开启后先迁移表，再校准种子
+enabled: true   # Outbox 要求开启迁移，也会迁移业务表并校准种子
 timeout: "5m"   # 迁表和种子共用的总时限，默认 5 分钟

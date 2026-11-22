@@ -6,13 +6,16 @@ import (
 	"github.com/bpcoder16/baize-demo/internal/database"
 	"github.com/bpcoder16/baize-demo/internal/infra/lock"
 	"github.com/bpcoder16/baize-demo/internal/infra/mysql"
+	"github.com/bpcoder16/baize-demo/internal/infra/nats"
 	"github.com/bpcoder16/baize-demo/internal/infra/postgresql"
 	"github.com/bpcoder16/baize-demo/internal/infra/redis"
 
 	baize "github.com/bpcoder16/baize/bootstrap"
 	"github.com/bpcoder16/baize/bootstrap/mysqlboot"
+	"github.com/bpcoder16/baize/bootstrap/outboxboot"
 	"github.com/bpcoder16/baize/bootstrap/postgresqlboot"
 	"github.com/bpcoder16/baize/bootstrap/redisboot"
+	"github.com/bpcoder16/baize/service/outbox"
 	"github.com/bpcoder16/pixiu/biz/lockx/redislock"
 )
 
@@ -33,5 +36,6 @@ func prepareSteps() []baize.Step {
 			WaitTimeout:   5 * time.Second,       // 阻塞获取锁的最长等待时间
 			RetryInterval: 50 * time.Millisecond, // 阻塞获取锁时，竞争失败后的重试间隔基准
 		}),
+		outboxboot.PrepareJetStream(outbox.MySQL, mysql.DefaultResourceName, nats.DefaultResourceName),
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/bpcoder16/baize-demo/bootstrap"
@@ -60,10 +61,30 @@ func TestInfraAccessors(t *testing.T) {
 		}
 	}
 	ctx := t.Context()
+	// 此用例只打开 SQLite、Redis 和云客户端，两个服务器数据库的迁移均显式关闭。
+	if err := os.WriteFile(filepath.Join(dir, "mysql-migrate.default.yaml"), []byte("enabled: false"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	foundOutbox := false
 	for _, step := range plan.Prepare {
-		if err := step.Init(ctx, filepath.Join("..", "conf.example"), &resources); err != nil {
+		configDir := filepath.Join("..", "conf.example")
+		if step.Name == "mysql-default-migrate" || step.Name == "jetstream-outbox" {
+			configDir = dir
+		}
+		err := step.Init(ctx, configDir, &resources)
+		if step.Name == "jetstream-outbox" {
+			foundOutbox = true
+			if err == nil || !strings.Contains(err.Error(), "migration enabled") {
+				t.Fatalf("Outbox must reject disabled MySQL migration: %v", err)
+			}
+			continue
+		}
+		if err != nil {
 			t.Fatal(err)
 		}
+	}
+	if !foundOutbox {
+		t.Fatal("Demo 缺少 JetStream Outbox Prepare 步骤")
 	}
 
 	db := sqlite.DefaultDB(ctx)
