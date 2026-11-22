@@ -15,7 +15,7 @@ import (
 	"github.com/bpcoder16/baize/bootstrap/outboxboot"
 	"github.com/bpcoder16/baize/bootstrap/postgresqlboot"
 	"github.com/bpcoder16/baize/bootstrap/redisboot"
-	"github.com/bpcoder16/baize/service/outbox"
+	"github.com/bpcoder16/baize/constant"
 	"github.com/bpcoder16/pixiu/biz/lockx/redislock"
 )
 
@@ -36,6 +36,12 @@ func prepareSteps() []baize.Step {
 			WaitTimeout:   5 * time.Second,       // 阻塞获取锁的最长等待时间
 			RetryInterval: 50 * time.Millisecond, // 阻塞获取锁时，竞争失败后的重试间隔基准
 		}),
-		outboxboot.PrepareJetStream(outbox.MySQL, mysql.DefaultResourceName, nats.DefaultResourceName),
+		outboxboot.PrepareJetStream(outboxboot.JetStreamConfig{
+			Backend:         constant.MySQL,
+			DatabaseName:    mysql.DefaultResourceName,
+			ResourceNames:   []string{nats.DefaultResourceName},
+			CronTaskEvery:   10 * time.Second,
+			CronTaskTimeout: time.Minute,
+		}),
 	}
 }

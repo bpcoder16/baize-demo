@@ -16,6 +16,7 @@ import (
 	"github.com/bpcoder16/baize-demo/internal/infra/aliyunoss"
 	"github.com/bpcoder16/baize-demo/internal/infra/aliyunsts"
 	"github.com/bpcoder16/baize-demo/internal/infra/lock"
+	"github.com/bpcoder16/baize-demo/internal/infra/nats"
 	"github.com/bpcoder16/baize-demo/internal/infra/redis"
 	"github.com/bpcoder16/baize-demo/internal/infra/sqlite"
 
@@ -68,14 +69,15 @@ func TestInfraAccessors(t *testing.T) {
 	foundOutbox := false
 	for _, step := range plan.Prepare {
 		configDir := filepath.Join("..", "conf.example")
-		if step.Name == "mysql-default-migrate" || step.Name == "jetstream-outbox" {
+		if step.Name == "baize.mysql-default-migrate" || step.Name == "baize.jetstream-outbox" {
 			configDir = dir
 		}
 		err := step.Init(ctx, configDir, &resources)
-		if step.Name == "jetstream-outbox" {
+		if step.Name == "baize.jetstream-outbox" {
 			foundOutbox = true
-			if err == nil || !strings.Contains(err.Error(), "migration enabled") {
-				t.Fatalf("Outbox must reject disabled MySQL migration: %v", err)
+			want := fmt.Sprintf("JetStream resource %q is not declared", nats.DefaultResourceName)
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("关闭迁移后仍应检查 Demo 的 NATS 实例，得到 %v", err)
 			}
 			continue
 		}

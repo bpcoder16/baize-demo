@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/alicebob/miniredis/v2 v2.40.0
-	github.com/bpcoder16/baize v0.0.0
+	github.com/bpcoder16/baize v0.1.0
 	github.com/bpcoder16/pixiu v0.2.5
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gorilla/websocket v1.5.3
@@ -130,5 +130,3 @@ require (
 	gorm.io/driver/postgres v1.6.3 // indirect
 	gorm.io/driver/sqlite v1.6.0 // indirect
 )
-
-replace github.com/bpcoder16/baize => ../baize

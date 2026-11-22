@@ -1,6 +1,6 @@
 # Baize Demo
 
-运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Realtime WebSocket、Gin HTTP、Cron 和 `default` 实例的 NATS 消费服务。需要 Go 1.27.3、同级目录 `../baize`、可用的 C 编译器，以及配置中指定的数据库和网络服务。JetStream Outbox 由同级 Baize 提供。SQLite 默认使用进程内存。
+运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Realtime WebSocket、Gin HTTP、Cron 和 `default` 实例的 NATS 消费服务。Demo 通过 Go Modules 引入 Baize v0.1.0，使用其 JetStream Outbox。运行需要 Go 1.27.3、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
 
 各组件在 `internal/infra/<组件>/` 中维护自己的资源实例名。Redis 锁的装配引用 [lock.DefaultPrepareExecutorName](internal/infra/lock/executor.go) 和 [redis.DefaultResourceName](internal/infra/redis/client.go)。[bootstrap/resource.go](bootstrap/resource.go) 声明共享资源，[bootstrap/prepare.go](bootstrap/prepare.go) 声明准备步骤。[bootstrap/service.go](bootstrap/service.go) 声明 Realtime WebSocket、Gin HTTP、Cron 和 NATS 消费服务。[NewPlan](bootstrap/plan.go) 将三份清单组装为启动计划，由根入口 `main.go` 交给白泽的 `RunCLI` 执行。`Plan.Prepare` 中的 `redisboot.PrepareLock` 用名为 `default` 的 Redis 创建同名锁执行器。业务代码从 `github.com/bpcoder16/baize-demo/internal/infra/<组件>` 导入对应包，在资源或准备步骤就绪后获取共享句柄。客户端由白泽统一关闭。首次运行或升级时，从模板补齐本地配置。
 
@@ -22,7 +22,7 @@ go generate ./openapi
 - `conf/clickhouse.default.yaml` 填写库名、凭据、协议和地址。Native 默认端口 9000，HTTP 默认端口 8123。业务通过 `clickhouse.DefaultMasterDB(ctx)` 和 `clickhouse.DefaultSlaveDB(ctx)` 获取会话。
 - `conf/sqlite.default.yaml` 默认使用 `:memory:`，业务通过 `sqlite.DefaultDB(ctx)` 获取会话。持久化时将 `dsn` 改为文件路径或 `file:` URI，并提前创建父目录。构建 demo 时使用 `CGO_ENABLED=1`。
 - `conf/redis.default.yaml` 填写主机、端口、认证信息和数据库编号。通过 `redis.DefaultClient()` 执行命令，需要 Pixiu 包装类型时使用 `redis.DefaultInstance()`。锁复用该实例的连接池，需要保留 `maxRetries: -1` 以关闭 Redis 命令重试。
-- `conf/nats.default.yaml` 填写集群节点地址，启用认证时填写用户名和密码。通过 `nats.DefaultClient()` 发布消息。默认消费示例可使用仅开启 Core 的 NATS 服务。
+- `conf/nats.default.yaml` 填写集群节点地址，启用认证时填写用户名和密码。默认启动会初始化 JetStream Outbox，因此 NATS 服务端须开启 JetStream。业务通过 `nats.DefaultClient()` 发布消息。
 - `conf/elasticsearch.default.yaml` 填写节点地址和认证信息。启动计划使用 `elasticsearchboot/v8`，启动时通过 `GET /` 校验集群为 Elasticsearch 8。升级旧配置时删除 `version` 字段。使用自建 CA 时填写 `caCertFile`，相对路径从该文件所在目录解析。
 - `conf/aliyunossx.default.yaml` 配置地域、Bucket 和访问密钥，业务通过 `aliyunoss.DefaultClient()` 访问该桶。
 - `conf/aliyunstsx.default.yaml` 配置 STS 地域和访问密钥，业务通过 `aliyunsts.DefaultClient()` 申请临时凭据。
@@ -56,19 +56,21 @@ go generate ./openapi
 
 `internal/cron/router` 登记任务，`internal/cron/handler` 实现任务。启动时，`bootstrap/service.go` 将注册表交给 `cronboot.Service`。Demo 启动一分钟后首次执行 `Heartbeat`，随后每分钟一次。可在 `log/baize-demo/biz/cron.info.log` 中查看该任务的 `CronJobResult`。[任务注册表](internal/cron/router/registry.go) · [Heartbeat 实现](internal/cron/handler/heartbeat.go) · [Cron 模板](conf.example/cron.yaml)
 
-`conf/cron.yaml` 中的任务名与函数名大小写一致。每项选用 `every`、`cron` 或 `randomEvery` 中的一种调度方式。示例借用 `default` Redis，通过 `baize-demo:cron:` 前缀协调同一任务的多个副本。单实例部署可省略 `lock`。修改配置后重启生效，`jobs: []` 停用全部任务，`app.yaml` 的 `disabledServices` 加入 `"cron"` 则跳过整个 Cron 服务的构造。
+`conf/cron.yaml` 中的任务名与函数名大小写一致。每项选用 `every`、`cron` 或 `randomEvery` 中的一种调度方式。示例借用 `default` Redis，通过 `baize-demo:cron:` 前缀协调同一任务的多个副本。单实例部署可省略 `lock`。修改配置后重启生效。
+
+设置 `jobs: []` 会停用示例中的 `Heartbeat`，由 `bootstrap/prepare.go` 登记的 Outbox 补偿任务 `baize.outbox.retry.nats_jetstream` 仍会运行。当前 Demo 需要 Cron 来执行补偿，如果在 `app.yaml` 的 `disabledServices` 中加入 `"cron"`，Outbox 准备步骤会报错并中止启动。
 
 ### NATS 消费与消息应答
 
 `internal/nats/router` 分别登记 `JetStreamRegistry` 和 `CoreRegistry`，`internal/nats/handler` 实现消费函数。`nats-consumer:default` 借用现有的 `default` 连接，读取同目录的 `nats-register.default.yaml`。配置中的 `handler` 与对应注册表的名称大小写一致。[注册表](internal/nats/router/registry.go) · [订阅配置](conf.example/nats-register.default.yaml)
 
-启动时先绑定 Handler 并校验整份订阅配置，再注册远端资源。默认启用 Core 广播请求应答。需要多个实例分担请求时，取消 `queue` 的注释即可。每个实例默认建立一个同组订阅，增加并发时可将 `subscribers` 设为更大的正整数。启动 Demo 后，在连接同一 NATS 服务的 CLI 中执行下列命令，预期收到 `pong`。[Ping 实现](internal/nats/handler/ping.go)
+启动时先绑定 Handler 并校验整份订阅配置，再注册远端资源。默认订阅配置只启用 Core 广播请求应答。需要多个实例分担请求时，取消 `queue` 的注释即可。每个实例默认建立一个同组订阅，增加并发时可将 `subscribers` 设为更大的正整数。启动 Demo 后，在连接同一 NATS 服务的 CLI 中执行下列命令，预期收到 `pong`。[Ping 实现](internal/nats/handler/ping.go)
 
 ```sh
 nats request demo.ping hello
 ```
 
-试用 JetStream 时，先在 NATS 服务端开启 JetStream，再取消 `conf/nats-register.default.yaml` 中 `streams` 块的首层注释并重启 Demo。运行下列命令后，`HandleDemoEvent` 会把事件 ID 写入本次消费日志，由 natsx 确认成功处理的消息。日志位于 `log/baize-demo/biz/nats.info.log`。命令使用模板默认的空 `namespace`，若设置了命名空间，CLI 主题需加上相应前缀。[事件处理函数](internal/nats/handler/event.go)
+要启用 JetStream 订阅，取消 `conf/nats-register.default.yaml` 中 `streams` 块的首层注释并重启 Demo。运行下列命令后，`HandleDemoEvent` 会把事件 ID 写入本次消费日志，由 natsx 确认成功处理的消息。日志位于 `log/baize-demo/biz/nats.info.log`。命令使用模板默认的空 `namespace`，若设置了命名空间，CLI 主题需加上相应前缀。[事件处理函数](internal/nats/handler/event.go)
 
 ```sh
 nats pub demo.events.created '{"id":"demo-1"}'
@@ -78,19 +80,33 @@ nats pub demo.events.created '{"id":"demo-1"}'
 
 ### JetStream Outbox
 
-`outboxboot.PrepareJetStream(outbox.MySQL, mysql.DefaultResourceName, nats.DefaultResourceName)` 借用主库并向 Cron 注册 `RetryPixiuOutbox`。启用 MySQL 迁移、Cron 并声明非空发布白名单后，启动时逐个校验名单内的 JetStream 实例。目标 subject 须有对应的 Stream。关闭 NATS 消费服务不影响发布。
+`bootstrap/prepare.go` 通过 `outboxboot.JetStreamConfig` 选择 MySQL 主库、发布实例、`CronTaskEvery` 和 `CronTaskTimeout`。示例运行 `baize.outbox.retry.nats_jetstream`，每 10 秒触发，单轮超时 1 分钟。启动需要启用 Cron，发布目标 subject 须有对应的 Stream。
 
-业务使用 `github.com/bpcoder16/baize/service/outbox`，在业务事务中登记任务，将错误返回给事务调用方：
+业务只需引入 `github.com/bpcoder16/baize/service/outbox`。在写业务数据的同一个事务中登记任务，并把入队错误返回给事务调用方。
 
 ```go
-id, err := outbox.EnqueueJetStreamTx(tx, outbox.JetStreamMessage{
-    ResourceName: nats.DefaultResourceName,
-    Subject:      "orders.created",
-    Data:         data,
+var id int64
+err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+    if err := tx.Create(&order).Error; err != nil {
+        return err
+    }
+    var err error
+    id, err = outbox.EnqueueJetStreamTx(tx, outbox.JetStreamMessage{
+        Subject:   "orders.created",
+        Data:      data,
+        Header:    map[string][]string{},
+        ExpiresAt: time.Now().Add(24 * time.Hour),
+    })
+    return err
 })
+if err != nil {
+    return err
+}
+outbox.SendAsyncJetStream(id)
+return nil
 ```
 
-最外层事务提交后可调用 `outbox.Send(ctx, id)`，或交给每 10 秒运行一次的补偿任务。省略目标时，调用 `outbox.EnqueueDefaultJetStreamTx(tx, msg)` 并省略消息的 `ResourceName` 字段。它将白名单首个实例写入任务。增加发布实例时，在资源声明和 Prepare 的白名单中同时加入实例名。显式传入名单外的目标会在提交时返回错误。旧积压的目标缺失且无法恢复，或目标已移出白名单时，首次失败后即结束。积压期间保持实例名、集群和 namespace 的对应关系稳定。
+`ResourceName` 省略时使用 Prepare 中的第一个 NATS 实例，指定时须在名单内。登记时持久化实际实例和 `nats_jetstream` 类型。最外层事务提交后，也可调用 `outbox.SendJetStream(ctx, id)` 等待结果。补偿按该类型执行，同表同类型的副本使用一致的发布名单。
 
 ### 数据库迁移
 
@@ -100,7 +116,7 @@ id, err := outbox.EnqueueJetStreamTx(tx, outbox.JetStreamMessage{
 
 两库共用种子 SQL，按 `user_number = 'demo-user-001'` 校准。首次插入由数据库生成 ID，已有对应记录时保留现有值。旧示例表 `demo_statuses` 由部署方在目标数据库中手动清理。[用户种子](internal/database/seeds/users.sql) · [MySQL 种子选项](internal/database/mysql_seeds.go) · [PostgreSQL 种子选项](internal/database/postgresql_seeds.go)
 
-每个实例的迁移配置用 `timeout` 设置迁表和种子共用的总时限，默认 `5m`。超时或启动取消会中止后续启动。Outbox 使用数据库会话锁串行迁移自己的表。业务表及种子仍应串行部署。
+每个实例的迁移配置用 `timeout` 设置迁表和种子共用的总时限，默认 `5m`。多副本部署时，由一个进程在 `mysql-migrate.default.yaml` 设置 `enabled: true`，迁移业务表、校准种子，并在数据库会话锁内准备 `baize_outbox`。完成后，普通副本设为 `enabled: false` 即可使用已有表。缺表时 Outbox 在 Prepare 阶段报错。
 
 ### Redis 锁
 
