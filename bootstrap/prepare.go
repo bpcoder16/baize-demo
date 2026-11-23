@@ -16,7 +16,7 @@ import (
 	"github.com/bpcoder16/baize/bootstrap/postgresqlboot"
 	"github.com/bpcoder16/baize/bootstrap/redisboot"
 	"github.com/bpcoder16/baize/constant"
-	"github.com/bpcoder16/pixiu/biz/lockx/redislock"
+	"github.com/bpcoder16/baize/service/lockx/redislock"
 )
 
 func prepareSteps() []baize.Step {

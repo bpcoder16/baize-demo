@@ -1,6 +1,6 @@
 # Baize Demo
 
-运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Realtime WebSocket、Gin HTTP、Cron 和 `default` 实例的 NATS 消费服务。Demo 通过 Go Modules 引入 Baize `v0.1.1` 和 Pixiu `v0.2.6`，使用 Baize 的 JetStream Outbox。运行需要 Go 1.27.3、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
+运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Realtime WebSocket、Gin HTTP、Cron 和 `default` 实例的 NATS 消费服务。Demo 使用 Baize 的 Redis 锁和 JetStream Outbox，依赖版本见 [go.mod](go.mod)。运行需要 Go 1.27.3、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
 
 各组件在 `internal/infra/<组件>/` 中维护自己的资源实例名。Redis 锁的装配引用 [lock.DefaultPrepareExecutorName](internal/infra/lock/executor.go) 和 [redis.DefaultResourceName](internal/infra/redis/client.go)。[bootstrap/resource.go](bootstrap/resource.go) 声明共享资源，[bootstrap/prepare.go](bootstrap/prepare.go) 声明准备步骤。[bootstrap/service.go](bootstrap/service.go) 声明 Realtime WebSocket、Gin HTTP、Cron 和 NATS 消费服务。[NewPlan](bootstrap/plan.go) 将三份清单组装为启动计划，由根入口 `main.go` 交给白泽的 `RunCLI` 执行。`Plan.Prepare` 中的 `redisboot.PrepareLock` 用名为 `default` 的 Redis 创建同名锁执行器。业务代码从 `github.com/bpcoder16/baize-demo/internal/infra/<组件>` 导入对应包，在资源或准备步骤就绪后获取共享句柄。客户端由白泽统一关闭。首次运行或升级时，从模板补齐本地配置。
 
@@ -122,7 +122,7 @@ return nil
 
 ### Redis 锁
 
-`bootstrap/prepare.go` 显式填写了 Pixiu 的默认锁策略。租期 `TTL` 为 1 分钟，阻塞获取锁最多等待 `WaitTimeout`（5 秒），竞争后的重试间隔以 `RetryInterval`（50 毫秒）为基准。业务代码通过 `internal/infra/lock` 的 `DefaultExecutor()` 获取该执行器。以下示例以任务 ID 作为锁键。
+`bootstrap/prepare.go` 显式填写了 Baize 的默认锁策略。租期 `TTL` 为 1 分钟，阻塞获取锁最多等待 `WaitTimeout`（5 秒），竞争后的重试间隔以 `RetryInterval`（50 毫秒）为基准。业务代码通过 `internal/infra/lock` 的 `DefaultExecutor()` 获取该执行器。以下示例以任务 ID 作为锁键。
 
 ```go
 func runJob(ctx context.Context, jobID string, work func(context.Context) error) error {

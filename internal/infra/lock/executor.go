@@ -1,6 +1,6 @@
 package lock
 
-import "github.com/bpcoder16/pixiu/biz/lockx"
+import "github.com/bpcoder16/baize/service/lockx"
 
 // DefaultPrepareExecutorName 是 Plan.Prepare 注册的 Redis 锁执行器名。
 const DefaultPrepareExecutorName = "default"
