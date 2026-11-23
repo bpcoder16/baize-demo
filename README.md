@@ -48,6 +48,8 @@ go generate ./openapi
 
 首次运行或升级时，将 `conf.example/gin.yaml` 和 `conf.example/http.yaml` 复制到入口配置同目录。示例监听 `127.0.0.1:8888`，可在 `http.yaml` 的 `addr` 修改。启动 Demo 后，请求 `GET /app/ping` 或 `GET /admin/ping`，均返回 `pong`。
 
+Gin 配置样例允许来自 `http://localhost:5173` 的前端跨域调用 `GET /app/ping` 并读取 `PIXIU-Log-Id` 响应头。规则仅覆盖 `/app`。已有本地配置时，将模板的 `cors` 段合入 `conf/gin.yaml`，按前端页面的 `location.origin` 调整 `allowOrigins` 后重启。[Gin 配置样例](conf.example/gin.yaml)
+
 在 debug/test 模式下打开 [本地接口文档](http://127.0.0.1:8888/docs)，首页展示 App，可切换到 Admin。各模块的页面位于 `/docs/<模块名>`，Swagger 2.0 JSON 位于 `/openapi/<模块名>.json`。release 模式只注册业务路由。
 
 `internal/http/router` 按 App、Admin 分文件挂载路由。接口实现和 Swag 注释放在 `internal/http/handler`。两端共用 Handler 时，在函数旁各写一个独立注释块，分别声明模块标记和完整的 `@Router` 路径。`@Tags` 用于文档内分组。修改注释后，在仓库根目录执行 `go generate ./openapi` 更新两份文档。[路由入口](internal/http/router/http.go) · [Ping 接口与文档注释](internal/http/handler/ping.go)

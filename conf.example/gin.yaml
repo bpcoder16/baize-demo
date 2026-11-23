@@ -1,4 +1,4 @@
-# 与 app.yaml 放在同一目录，配置 Gin 的可信代理和访问日志。
+# 与 app.yaml 放在同一目录，配置 Gin 的可信代理、访问日志和浏览器跨域访问。
 
 trustedProxies: []  # 可信代理 IP 或 CIDR，空列表表示直接使用对端 IP
 
@@ -8,3 +8,13 @@ disableAccessLog: false  # 设为 true 关闭访问日志和详情采集，仍�
 # 详情包含完整请求头或响应头及正文。开启请求详情前，应在 Gin 外层限制请求体大小和读取时间。
 logRequestInfo: false   # 记录请求详情
 logResponseInfo: false  # 记录响应详情
+
+# 本地前端可跨域访问 GET /app/ping。删除 cors 或设为 [] 即可关闭。
+cors:
+  - pathPrefix: /app  # 按完整路径段匹配，包含 /app 及其子路径
+    allowOrigins: ["http://localhost:5173"]  # 填前端页面的 location.origin，含协议和非默认端口
+    allowMethods: [GET]                  # 实际业务方法，OPTIONS 预检由中间件处理
+    allowHeaders: [Authorization]         # 允许前端在请求中设置的额外头
+    exposeHeaders: [PIXIU-Log-Id]         # 前端脚本可读取的请求跟踪 ID 响应头
+    allowCredentials: false              # 跨域请求携带 Cookie 时设为 true，并逐项列出允许来源
+    maxAge: 10m                          # 浏览器可复用成功预检结果的时长
