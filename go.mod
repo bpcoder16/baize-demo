@@ -4,8 +4,8 @@ go 1.27.3
 
 require (
 	github.com/alicebob/miniredis/v2 v2.40.0
-	github.com/bpcoder16/baize v0.1.2-0.20261123080219-0af689c5bc07
-	github.com/bpcoder16/pixiu v0.2.6
+	github.com/bpcoder16/baize v0.1.2
+	github.com/bpcoder16/pixiu v0.2.8
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/nats-io/nats-server/v2 v2.15.2

@@ -130,6 +130,22 @@ func runJob(ctx context.Context, jobID string, work func(context.Context) error)
 }
 ```
 
+### Elasticsearch 同义词验证
+
+词库文件部署到 ES 节点后，业务可通过 Demo 已装配的 `elasticsearch.DefaultClient()` 验证文件。选项类型来自 `github.com/bpcoder16/pixiu/infra/elasticsearchx`，路径相对于 ES 节点的配置目录。
+
+```go
+func validateSynonyms(ctx context.Context) error {
+    result, err := elasticsearch.DefaultClient().ValidateSynonyms(ctx, elasticsearchx.SynonymValidationOptions{
+        SynonymsPath: "analysis/synonyms.txt",
+    })
+    if err != nil && result.MayExist {
+        return fmt.Errorf("请核查临时索引 %s: %w", result.Index, err)
+    }
+    return err
+}
+```
+
 ### 阿里云 ES 管理端
 
 通过 `aliyunes.DefaultClient()` 查询云实例状态。索引和文档读写使用 `elasticsearch.DefaultClient()`。
