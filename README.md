@@ -1,6 +1,6 @@
 # Baize Demo
 
-运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Realtime WebSocket、Gin HTTP、Cron 和 `default` 实例的 NATS 消费服务。Demo 通过 Go Modules 引入 Baize v0.1.0，使用其 JetStream Outbox。运行需要 Go 1.27.3、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
+运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Realtime WebSocket、Gin HTTP、Cron 和 `default` 实例的 NATS 消费服务。Demo 通过 Go Modules 引入 Baize `v0.1.1` 和 Pixiu `v0.2.6`，使用 Baize 的 JetStream Outbox。运行需要 Go 1.27.3、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
 
 各组件在 `internal/infra/<组件>/` 中维护自己的资源实例名。Redis 锁的装配引用 [lock.DefaultPrepareExecutorName](internal/infra/lock/executor.go) 和 [redis.DefaultResourceName](internal/infra/redis/client.go)。[bootstrap/resource.go](bootstrap/resource.go) 声明共享资源，[bootstrap/prepare.go](bootstrap/prepare.go) 声明准备步骤。[bootstrap/service.go](bootstrap/service.go) 声明 Realtime WebSocket、Gin HTTP、Cron 和 NATS 消费服务。[NewPlan](bootstrap/plan.go) 将三份清单组装为启动计划，由根入口 `main.go` 交给白泽的 `RunCLI` 执行。`Plan.Prepare` 中的 `redisboot.PrepareLock` 用名为 `default` 的 Redis 创建同名锁执行器。业务代码从 `github.com/bpcoder16/baize-demo/internal/infra/<组件>` 导入对应包，在资源或准备步骤就绪后获取共享句柄。客户端由白泽统一关闭。首次运行或升级时，从模板补齐本地配置。
 
@@ -82,7 +82,9 @@ nats pub demo.events.created '{"id":"demo-1"}'
 
 `bootstrap/prepare.go` 通过 `outboxboot.JetStreamConfig` 选择 MySQL 主库、发布实例、`CronTaskEvery` 和 `CronTaskTimeout`。示例运行 `baize.outbox.retry.nats_jetstream`，每 10 秒触发，单轮超时 1 分钟。启动需要启用 Cron，发布目标 subject 须有对应的 Stream。
 
-业务只需引入 `github.com/bpcoder16/baize/service/outbox`。在写业务数据的同一个事务中登记任务，并把入队错误返回给事务调用方。
+运行下面的示例前，取消 `conf/nats-register.default.yaml` 中 `streams` 块的首层注释并启动 Demo，让 `DEMO_EVENTS` 接收 `demo.events.created`，由 `HandleDemoEvent` 处理。[订阅模板](conf.example/nats-register.default.yaml)
+
+业务通过 `github.com/bpcoder16/baize/service/outbox` 在写业务数据的同一个默认 MySQL 主库事务中登记任务，并把入队错误返回给事务调用方。
 
 ```go
 var id int64
@@ -92,8 +94,8 @@ err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
     }
     var err error
     id, err = outbox.EnqueueJetStreamTx(tx, outbox.JetStreamMessage{
-        Subject:   "orders.created",
-        Data:      data,
+        Subject:   "demo.events.created",
+        Data:      []byte(`{"id":"demo-1"}`),
         Header:    map[string][]string{},
         ExpiresAt: time.Now().Add(24 * time.Hour),
     })
