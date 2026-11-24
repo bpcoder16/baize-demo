@@ -1,21 +1,46 @@
 # Baize Demo
 
-运行 `go run .` 会初始化环境、时区和日志，打开 MySQL、PostgreSQL、ClickHouse、SQLite、Redis、NATS 和 Elasticsearch，再在本地构造阿里云 OSS、STS 和 ES 管理端客户端。准备步骤完成后，进程启动 Realtime WebSocket、Gin HTTP、Cron 和 `default` 实例的 NATS 消费服务。Demo 使用 Baize 的 Redis 锁和 JetStream Outbox，依赖版本见 [go.mod](go.mod)。运行需要 Go 1.27.3、可用的 C 编译器，以及配置中指定的数据库和网络服务。SQLite 默认使用进程内存。
+Baize Demo 展示如何用 Baize 在一个 Go 进程中运行 Gin HTTP、Realtime WebSocket、Cron 和 NATS 消费服务。宿主声明要使用的 Pixiu 客户端，并用这些共享资源完成数据库迁移、Redis 加锁和 JetStream Outbox 投递。
 
-各组件在 `internal/infra/<组件>/` 中维护自己的资源实例名。Redis 锁的装配引用 [lock.DefaultPrepareExecutorName](internal/infra/lock/executor.go) 和 [redis.DefaultResourceName](internal/infra/redis/client.go)。[bootstrap/resource.go](bootstrap/resource.go) 声明共享资源，[bootstrap/prepare.go](bootstrap/prepare.go) 声明准备步骤。[bootstrap/service.go](bootstrap/service.go) 声明 Realtime WebSocket、Gin HTTP、Cron 和 NATS 消费服务。[NewPlan](bootstrap/plan.go) 将三份清单组装为启动计划，由根入口 `main.go` 交给白泽的 `RunCLI` 执行。`Plan.Prepare` 中的 `redisboot.PrepareLock` 用名为 `default` 的 Redis 创建同名锁执行器。业务代码从 `github.com/bpcoder16/baize-demo/internal/infra/<组件>` 导入对应包，在资源或准备步骤就绪后获取共享句柄。客户端由白泽统一关闭。首次运行或升级时，从模板补齐本地配置。
+## 快速开始
+
+在仓库根目录执行以下命令。当前项目使用 Go 1.27.3、Baize v0.2.0 和 Pixiu v0.3.0。SQLite 驱动需要可用的 C 编译器和 `CGO_ENABLED=1`。首次启动或测试前，先生成 App、Admin 两份接口文档。[依赖版本](go.mod) · [文档生成入口](openapi/placeholder.go)
+
+```sh
+go generate ./openapi
+```
+
+完整启动需要可连接的 MySQL、PostgreSQL、ClickHouse、Redis、Elasticsearch 8 和已开启 JetStream 的 NATS。SQLite 默认使用内存。先复制模板，再编辑 `conf/` 下对应实例的地址、库名和凭据。MySQL 模板开启了启动迁移，首次运行请指向用于演示的数据库。升级时，`cp -n` 会保留已有文件，其中新增的配置项需手动合入。[配置模板](conf.example) · [MySQL 迁移开关](conf.example/mysql-migrate.default.yaml)
 
 ```sh
 mkdir -p conf
 cp -n conf.example/*.yaml conf/
 ```
 
-首次运行 `go run .` 或执行 `go test ./...` 前，先在仓库根目录生成接口文档。`openapi/app.go` 和 `openapi/admin.go` 声明各模块的文档信息，生成指令集中在 `openapi/placeholder.go`。Git 仅放行这三个源文件。
+填好配置后启动服务。默认入口是 `./conf/app.yaml`，可用 `go run . --conf /etc/demo/app.yaml` 指定其他路径（简写 `-c`）。实例配置与入口文件放在同一目录。
 
 ```sh
-go generate ./openapi
+go run .
 ```
 
-应用配置在 `conf/app.yaml`。应用和实例配置中的超时建议写明单位，例如 `"30s"` 或 `"500ms"`。YAML 整数按纳秒解析，`resourceCloseTimeout: 30` 表示 30 纳秒。共享资源各有一份连接配置。已有部署升级时，将 `aliyunesx.search-control.yaml` 和 `aliyunstsx.oss.yaml` 分别改名为 `aliyunesx.default.yaml` 和 `aliyunstsx.default.yaml`，沿用原有配置内容。
+使用模板监听地址时，在另一个终端验证 HTTP 路由和 WebSocket 就绪状态。默认 debug 模式还可以打开[接口文档](http://127.0.0.1:8888/docs)。
+
+```sh
+curl -fsS http://127.0.0.1:8888/app/ping                          # 响应正文为 pong
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8889/ready/ws  # 预期 204
+```
+
+## 启动清单与配置
+
+`main.go` 把 `bootstrap.NewPlan()` 交给 Baize 的 `RunCLI`。修改宿主时，按启动顺序找到对应清单。[程序入口](main.go) · [启动计划](bootstrap/plan.go)
+
+| 阶段 | Demo 中的职责 | 代码入口 |
+| --- | --- | --- |
+| `Resources` | 声明数据库、Redis、NATS、Elasticsearch 和阿里云命名客户端。业务通过 `internal/infra/<组件>/` 的访问函数借用实例。 | [resource.go](bootstrap/resource.go) |
+| `Prepare` | 依次处理 MySQL 和 PostgreSQL 迁移、准备 Redis 业务锁，再装配基于 MySQL 和 NATS 的 JetStream Outbox。 | [prepare.go](bootstrap/prepare.go) |
+| `Services` | 声明 NATS 消费、Cron、Gin HTTP、Realtime WebSocket。HTTP 与 WebSocket 独立监听。 | [service.go](bootstrap/service.go) |
+
+应用和实例配置中的超时写明单位，例如 `"30s"` 或 `"500ms"`。YAML 整数按纳秒解析，`resourceCloseTimeout: 30` 表示 30 纳秒。已有部署升级时，将 `aliyunesx.search-control.yaml` 和 `aliyunstsx.oss.yaml` 分别改名为 `aliyunesx.default.yaml` 和 `aliyunstsx.default.yaml`，沿用原有配置内容。
 
 - `conf/mysql.default.yaml` 填写数据库地址、库名和凭据。业务通过 `mysql.DefaultMasterDB(ctx)` 和 `mysql.DefaultSlaveDB(ctx)` 获取会话。
 - `conf/postgresql.default.yaml` 填写主库、可选从库及凭据。业务通过 `postgresql.DefaultMasterDB(ctx)` 和 `postgresql.DefaultSlaveDB(ctx)` 获取会话。模板使用 `sslMode: "verify-full"`，本地配置按实际服务填写 TLS 模式和证书。`sslRootCert`、`sslCert` 和 `sslKey` 的相对路径从进程工作目录解析。例如，从 `/srv/demo` 使用 `--conf /etc/demo/app.yaml` 启动时，`certs/ca.pem` 指向 `/srv/demo/certs/ca.pem`。证书随配置部署时可写绝对路径，如 `/etc/demo/certs/ca.pem`。
@@ -28,7 +53,11 @@ go generate ./openapi
 - `conf/aliyunstsx.default.yaml` 配置 STS 地域和访问密钥，业务通过 `aliyunsts.DefaultClient()` 申请临时凭据。
 - `conf/aliyunesx.default.yaml` 填写阿里云 ES 实例的地域、`instanceID` 和管理 API 访问密钥。
 
-这三个阿里云客户端都在首次业务调用时才访问云服务，模板中的示例值可用于启动 demo。实际调用时，在本地配置中填写云资源信息和获授权的凭据。收到 SIGINT 或 SIGTERM 后，Demo 先停止接收 WebSocket 连接和消息、HTTP 请求、NATS 消息和调度新任务，等待在途工作结束，再按声明的逆序回收客户端，最后关闭日志。所有资源共享 `conf/app.yaml` 的 `resourceCloseTimeout`（默认 30 秒），单个 NATS 客户端的 `closeTimeout`（默认 20 秒）计入这段时间。
+这三个阿里云客户端都在首次业务调用时才访问云服务，模板中的示例值可用于启动 Demo。实际调用时，在本地配置中填写云资源信息和获授权的凭据。
+
+收到 SIGINT 或 SIGTERM 后，四类服务共用 `serviceShutdownTimeout` 停收和排空（模板为 30 秒）。随后按登记的逆序回收资源，最后关闭日志。资源回收单独使用 `resourceCloseTimeout`（模板为 30 秒），单个 NATS 客户端的 `closeTimeout`（模板为 20 秒）计入这段时间。默认业务日志在 `log/baize-demo/biz/`，相对日志路径从进程工作目录计算。[应用配置](conf.example/app.yaml)
+
+## 组件示例
 
 ### Realtime WebSocket
 
@@ -86,11 +115,11 @@ nats pub demo.events.created '{"id":"demo-1"}'
 
 运行下面的示例前，取消 `conf/nats-register.default.yaml` 中 `streams` 块的首层注释并启动 Demo，让 `DEMO_EVENTS` 接收 `demo.events.created`，由 `HandleDemoEvent` 处理。[订阅模板](conf.example/nats-register.default.yaml)
 
-业务通过 `github.com/bpcoder16/baize/service/outbox` 在写业务数据的同一个默认 MySQL 主库事务中登记任务，并把入队错误返回给事务调用方。
+以下片段中，`order` 是调用方要保存的业务记录，`outbox` 来自 `github.com/bpcoder16/baize/service/outbox`。从宿主取得绑定当前请求上下文的 MySQL 主库会话，在写入记录的同一事务中调用 `outbox.EnqueueJetStreamTx`。入队失败时返回错误，事务随之回滚。[主库会话入口](internal/infra/mysql/db.go)
 
 ```go
 var id int64
-err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+err := mysql.DefaultMasterDB(ctx).Transaction(func(tx *gorm.DB) error {
     if err := tx.Create(&order).Error; err != nil {
         return err
     }
@@ -124,7 +153,7 @@ return nil
 
 ### Redis 锁
 
-`bootstrap/prepare.go` 显式填写了 Baize 的默认锁策略。租期 `TTL` 为 1 分钟，阻塞获取锁最多等待 `WaitTimeout`（5 秒），竞争后的重试间隔以 `RetryInterval`（50 毫秒）为基准。业务代码通过 `internal/infra/lock` 的 `DefaultExecutor()` 获取该执行器。以下示例以任务 ID 作为锁键。
+`redisboot.PrepareLock` 借用名为 `default` 的 Redis，登记同名锁执行器。租期 `TTL` 为 1 分钟，获取锁最多等待 `WaitTimeout`（5 秒），竞争后的重试间隔以 `RetryInterval`（50 毫秒）为基准。以下示例以任务 ID 作为锁键。[准备步骤](bootstrap/prepare.go) · [锁执行器入口](internal/infra/lock/executor.go) · [Redis 实例入口](internal/infra/redis/client.go)
 
 ```go
 func runJob(ctx context.Context, jobID string, work func(context.Context) error) error {
@@ -162,9 +191,15 @@ func instanceStatus(ctx context.Context) (string, error) {
 }
 ```
 
+## 开发验证
+
+首次检出或修改 Handler 的 Swag 注释后，在仓库根目录生成文档，再运行测试。HTTP 测试会读取已注册的 App、Admin 文档。测试使用本机临时端口、内嵌 NATS、测试用 Redis 和 SQLite 内存库，可独立于完整服务运行。[HTTP 测试](bootstrap/http_test.go) · [NATS 测试](bootstrap/nats_test.go) · [共享资源测试](bootstrap/infra_test.go)
+
 ```sh
-go run .
-cat log/baize-demo/biz/info.log
+go generate ./openapi
+go test ./...
 ```
 
-可用 `go run . --conf /etc/cards/staging.yaml` 指定应用配置（简写为 `-c`），各实例的 YAML 均放在该文件的同一目录。相对日志路径从启动工作目录计算。`go run . -h` 显示用法。
+单独验证 HTTP 路由和文档可运行 `go test ./bootstrap -run '^TestDemoHTTPModules$'`。查看启动参数可运行 `go run . -h`。
+
+装配测试中遇到 `instance "default" is not declared` 时，先检查测试的启动方式。Baize v0.2.0 在 `bootstrap.Run` 中把本次 Plan 声明的资源传入上下文，Redis 锁和 NATS 消费服务会读取这些声明。直接用 `t.Context()` 调用相应的 `Init` 或 `Build` 会缺少这份信息，即使同名客户端已经创建。
