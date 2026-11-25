@@ -4,7 +4,7 @@ Baize Demo 展示如何用 Baize 在一个 Go 进程中运行 Gin HTTP、Realtim
 
 ## 快速开始
 
-在仓库根目录执行以下命令。当前项目使用 Go 1.27.3、Baize v0.2.0 和 Pixiu v0.3.0。SQLite 驱动需要可用的 C 编译器和 `CGO_ENABLED=1`。首次启动或测试前，先生成 App、Admin 两份接口文档。[依赖版本](go.mod) · [文档生成入口](openapi/placeholder.go)
+在仓库根目录执行以下命令。当前项目使用 Go 1.27.3、Baize v0.2.4 和 Pixiu v0.3.0。SQLite 驱动需要可用的 C 编译器和 `CGO_ENABLED=1`。首次启动或测试前，先生成 App、Admin 两份接口文档。[依赖版本](go.mod) · [文档生成入口](openapi/placeholder.go)
 
 ```sh
 go generate ./openapi
@@ -202,4 +202,4 @@ go test ./...
 
 单独验证 HTTP 路由和文档可运行 `go test ./bootstrap -run '^TestDemoHTTPModules$'`。查看启动参数可运行 `go run . -h`。
 
-装配测试中遇到 `instance "default" is not declared` 时，先检查测试的启动方式。Baize v0.2.0 在 `bootstrap.Run` 中把本次 Plan 声明的资源传入上下文，Redis 锁和 NATS 消费服务会读取这些声明。直接用 `t.Context()` 调用相应的 `Init` 或 `Build` 会缺少这份信息，即使同名客户端已经创建。
+装配测试中遇到 `instance "default" is not declared` 时，先检查测试的启动方式。Baize 在 `bootstrap.Run` 中把本次 Plan 声明的资源传入上下文，Redis 锁和 NATS 消费服务会读取这些声明。直接用 `t.Context()` 调用相应的 `Init` 或 `Build` 会缺少这份信息，即使同名客户端已经创建。
